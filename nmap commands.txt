@@ -1,0 +1,60 @@
+nmap --help
+
+nmap -Pn -sV -sC IP:  En genel haliyle 
+
+nmap -sL 192.168.1.0/24 (Listing:bu notasyona ait olan IP adreslerini gösterir, port,servis,up,down taramasi yapmaz)
+nmap -sn 192.168.1.0/24 (tüm network'ü tarayip up olan hostlari belirler)
+
+nmap 192.168.1.100-200 : scan ip range
+nmap 192.-.168.1: scans all devices in network block 192.0.168.1,192.1.168.1,192.2.168.1 etc
+nmap -PN 192.168.1.200 (scan host if it is protected by firewall)
+nmap -sP 192.168.1.0/24 (scans all network for all devices)
+
+
+nmap --top-ports 5 "IPaddress": bu adresteki top 5 porttan acik olup olmayanlari gosterir
+nmap -p http* "IPaddress": bu adresteki http wildcard ina sahip servislerin açik olup olmadigini gösterir
+
+--reason: girilen komutun çiktisinin neden olustugunu açiklar
+-oN:normal output
+-oX: xml output
+-og: grepable
+
+
+port scan results: open, closed,error message,no response
+nmap -sU -p 53 --reason "IPaddress" : UDP port scanning
+nmap -sU -p 53 --reason "IPaddress" : TCP port scanning
+
+time format: ms,s,m,h
+nmap --host-timeout 5m "IPaddress"
+nmap --max-retries 3 "IPaddress"
+nmap --min-rtt-timeout 1s --max-rtt-timeout 5s "IPaddress"
+nmap --scan-delay 20ms, --max-scan-delay 500ms "IPaddress" (host'a paket gonderirken bekleme süresi)
+nmap --min-hostgroup 256,--max-hostgroup 2048 "IPaddress" 
+nmap --min-rate 100,--max-rate 200 "IPaddress"  (packets per second)
+
+nmap -T paranoid,sneaky,polite,normal,aggressive,insane(T6) "IPaddress" (tarama hizlari) insane de tarama hizi fazladir,network'e yük bindirir
+
+nmap --traceroute "IPaddress" : kaç hop üzerinden gittigini gösterir
+nmap -p 80 --traceroute --script traceroute-geolocation.nse corendonairlines.com
+
+nmap -sV "IPaddress"    : açik olan servisleri,versiyonlarini ve portlari gösterir
+
+nmap -O -v "IPaddress" : operating system detection
+
+NSE script inin ne yaptigini açiklar: nmap --script-help "http-headers" scanme.nmap.org
+categories: https://nmap.org/book/nse-usage.html
+https://nmap.org/nsedoc/
+
+nmap -p 80 --script(-sC) http-headers,http-chrono www.test.com   (sayfanini getirilme süresi, ve web server sürümü)
+nmap  -sC http-google-malware www.test.com   (sayfanini getirilme süresi, ve web server sürümü)
+nmap -sC IP: IP üzerinde butun nmap scriptlerini çalistirir
+
+nmap-script-updatedb  
+locate *.nse (tüm scriptlerin yerini tespit etmek amaciyla kullanilir)
+
+
+
+
+
+
+
