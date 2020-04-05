@@ -1,0 +1,257 @@
+
+--- #test playbook
+- hosts: apacheweb                              # /etc/ansible/hosts defines hostnames
+  user: test
+  connection: ssh
+  gather_facts: yes                             #gets remote server features
+  serial: 1                                     #1 hostta tüm playbooku çalıştırır sonra 1 er 1er ilerler
+  vars:						                              # variable assignment
+    http_port: 80
+    control_server: localhost
+    webroot: /var/www/html
+  vars_files:
+    copyright.yml  				#location:/home/test/playbooks/copyright.yml
+  vars_prompt:
+    - name: pkgs
+      prompt: which package to install?
+      default: telnet
+      private: no
+
+  tasks:
+
+    - name: ping remote host
+      ping:
+      ignore_errors: no                                      # dont continue if cmd fails
+
+    - name: Change selinux configuration to disabled
+      selinux: state=disabled
+      register: task_result
+
+#   - name: Reboot host and wait for it to restart
+#     reboot:
+#      msg: "Reboot initiated by Ansible"
+#      connect_timeout: 5
+#      reboot_timeout: 600
+#      pre_reboot_delay: 0
+#      post_reboot_delay: 30
+#      test_command: whoami
+
+#    get disk information
+    - debug: msg="{{ item.mount }}"
+      with_items:
+      - "{{ ansible_mounts }}"
+
+
+#   - name: Format remote partition
+#     filesystem: fstype=ext4 dev=/dev/sdb1
+
+#   - name: Configuring fstab
+#     mount: path=/data src=/dev/sdb1 fstype=ext4 opts=rw state=present
+
+#   - name: mounting
+#     shell: /bin/mount -a
+
+    - name: create welcome txt on localhost                  # Local action
+      local_action: command touch /home/test/welcome.txt
+
+    - name: playbook started                       #errorhandling displaying messages and debugging
+      command: /usr/bin/date
+      register: start
+    - debug: msg="stdout={{ start.stdout  }}"
+    - debug: msg="stderr={{ start.stderr }}"
+    - debug:
+        msg: "remote system has kernel {{ansible_kernel }}"
+
+
+    - name: Run uptime cmd and log it
+      raw: /usr/bin/uptime >> /home/test/uptime.log
+
+#   - name: run script on remote host                  # run script on remote host
+#     command: /home/test/asd.sh                  # on remote host code should start with  #!/usr/bin/env bash
+#     args:
+#      chdir: /home/test
+
+    - name: execute remote command
+      shell: /usr/bin/uptime >> uptime.log
+      args:
+       chdir: /home/test
+       creates: uptime.log
+
+    - name: add cron job on remote host
+      cron: name="testjob" minute="0" hour="1" day="5" month="2" job="ls -alh > /dev/null"  # * 0 1 5 2 * ls -alh > /dev/null
+
+
+    - name: copy files                                   # copy file module option
+      action: copy src=/etc/fstab dest=/home/test/fstab owner=test group=test
+
+    - name: Unarchieve
+      unarchive: src=/home/test/test.tar.gz dest=/root copy=no
+
+    - name: Downloading a file
+      get_url: url=http://mirror.saglayici.com/centos/7.7.1908/isos/x86_64/sha256sum.txt dest=/home/test/downfile.txt mode=0660
+
+    - include: additional.yml                         # get other yml task
+
+    - name: Grant user acl permission
+      acl:
+       path: /home/test/file1.txt
+       entity: yaydog
+       etype: user
+       permissions: rw
+       state: present
+       recursive: yes
+
+    - name: install given package                     # get package name from vars_prompt section and update to latest ver
+      yum: pkg={{ pkgs }} state=latest
+
+    - name: install httpd                             # regular package install
+      action: yum name=httpd state=installed
+
+
+    - name: restart httpd                             # service restart
+      service: name=httpd state=restarted
+
+    - name: enable httpd after reboot                 #equivalent to systemctl enable httpd
+      service: name=httpd enabled=yes
+
+    - name: verify httpd running
+      command: systemctl status httpd
+      register: result
+    - debug: var=result
+
+    # Pause for 1 minutes and prompt
+    - pause:
+       prompt: "Pause for 1 minute"
+       minutes: 1
+
+    - name: installing Apache Tomcat
+      action: yum name=tomcat state=installed
+    - name: waiting for port listen                    # when port is open command continues
+      wait_for:
+       port: 8080
+       state: started
+
+    - name: install client software                      #install software
+      action: yum name=lynx state=installed
+
+    - name: remove client software                       #removes software
+      action: yum name=lynx state=absent
+    - include_vars: users.yml                                # user creation using file
+
+    - name: Creating users to remote Server
+      user: name="{{ item.username}}"
+      with_items: "{{ users }}"
+
+#user creation with check
+#create hashed password
+#python -c "from passlib.hash import sha512_crypt; import getpass; print sha512_crypt.using(rounds=5000).hash(getpass.getpass())"
+
+    - name: check if user exists or not
+      shell: id test6
+      register: user_condition
+      ignore_errors: yes
+
+    - name: user creation
+      user: name="test6" comment="ansible test user" uid=1092 shell="/bin/bash" groups=wheel home="/home/test6" password="hashedpassword"
+      when: user_condition.rc !=0
+      register: user_creation
+
+    - debug: msg=" Username already exists"
+      when: user_condition.rc == 0
+
+#user password reset
+    - name: user password reset
+      user: name=test5 update_password=always password="hashedpassword"
+
+    - name: Add group "Warehouse" to remote server
+      group:
+       name: warehouse
+       gid: 2012
+       state: present
+
+    - name: remove user from remote server
+      user: name="test2" state=absent remove=yes
+
+
+    - name: Install package depending on condition           #conditional task
+      action: yum name=gedit state=installed
+      when: ansible_kernel == "3.10.0-1062.9.1.el7.x86_64"
+
+    - name: installing multiple packages                     # installing multiple packages
+      yum: pkg={{ item  }} state=latest
+      with_items:
+       - htop
+       - vim
+
+    - name: playbook ended
+      command: /usr/bin/date
+      register: end
+    - debug: var=end
+
+
+    - name: copy remote server files to control server
+      fetch: src=/etc/fstab dest=/home/test/fstab-{{ ansible_hostname }} flat=yes
+
+#   - name: Sending an e-mail using SMTP servers
+#     mail:
+#      host: smtp-relay.sendinblue.com
+#      port: 587
+#      username: it@corendon-airlines.com
+#      password: R8CXDPAhnGdsN6V2
+#      to: Yigit Aydog <yaydog@gmail.com>
+#      subject: Ansible-report
+#      body: System {{ ansible_hostname }} has been successfully provisioned.
+#      from: it@corendon-airlines.com
+
+
+    - name: Run a script on remote host                #put local script on localhost /home/test/playbooks/asd.sh
+      script: /home/test/playbooks/asd.sh
+      register: run
+      ignore_errors: yes
+    - debug: msg="stdout={{ run.stdout  }}"
+    - debug: msg="stderr={{ run.stderr }}"
+
+    - name: Add a multiple line to a file
+      blockinfile:
+       path: /etc/hosts
+       block: |
+        192.168.1.99 testsrv
+        192.168.1.100 testsrv2
+
+    - name: change line in a file
+      lineinfile:
+       path: /root/test.txt     #check this file if present find comment word and add newline
+       state: present
+       regexp: '^#comment'
+       line: '^#comment newline'
+
+#create directory if it doesnt exist
+    - name: Ansible check directory.
+      stat:
+       path: /root/folder
+      register: my_folder
+
+    - name: "echo if directory already existed"
+      debug:
+        msg: "directory is already existed"
+      when: my_folder.stat.exists == true
+
+    - name: "Ansible Create directory if not exists"
+      file:
+       path: /root/folder
+       state: directory
+       mode: 0755
+       group: root
+       owner: root
+      when: my_folder.stat.exists == false
+
+#firewall settings
+    - name: Start firewalld service
+      service: name=firewalld state=started
+
+    - name: add port to firewall
+      firewalld:
+       port: 80/tcp
+       permanent: yes
+       state: enabled
+       immediate: yes  #equivalent to firewall-cmd --reload
