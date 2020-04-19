@@ -1,0 +1,59 @@
+
+--- #test playbook
+
+
+# This playbook tests the script module on Windows hosts
+
+  - hosts: windows                          # /etc/ansible/hosts defines hostnames
+    user: test
+    gather_facts: yes                             #gets remote server feature
+
+
+    tasks:
+
+    - name: ping remote host
+      win_ping:
+      ignore_errors: no
+
+
+#    - name: Run powershell script
+#      script: /home/test/playbooks/test.ps1
+
+
+    - name: Add a user
+      win_user:
+       name: ansible
+       password: "@ns1bl3"
+       state: present
+
+
+    - name: Installing package
+      win_package: 
+       path: 'C:\Users\Administrator\Downloads\novabench.msi'
+       state: present
+
+
+    - name: restart service
+      win_service:
+       name: AppIDSvc
+       state: restarted
+ 
+    - name: Warn logged in users of impending upgrade
+      win_msg:
+       display_seconds: 60
+       msg: Automated upgrade about to start.  Please save your work and log off before
+
+
+    - name: Copy folder contents recursively   #copy from linux to windows
+      win_copy:
+       src: /etc/ansible
+       dest: C:\Temp
+
+    - name: edit hosts file
+      win_hosts:
+       state: present
+       canonical_name: win12
+       ip_address: 192.168.1.2
+
+
+
