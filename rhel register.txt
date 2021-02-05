@@ -1,1 +1,0 @@
-subscription-manager register --username yaydog23 --password RedHatCOR737! --auto-attach --force
